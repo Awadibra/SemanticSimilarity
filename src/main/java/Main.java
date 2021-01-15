@@ -7,6 +7,7 @@ import com.amazonaws.services.elasticmapreduce.model.*;
 import software.amazon.awssdk.services.ec2.model.InstanceType;
 
 import java.io.*;
+import java.util.Arrays;
 import java.util.zip.GZIPInputStream;
 
 
@@ -16,7 +17,13 @@ public class Main {
     private static final AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(new ProfileCredentialsProvider().getCredentials());
 
 
-    public static void main(String[] args) {
+    public static void main(String... args) {
+        //todo: create input string with for, from 99 input files
+        String[] biarcs = new String[2];
+        biarcs[0] = "s3://dsp-211-ass3/v1";
+        for (int i=1; i< biarcs.length; i++){
+            biarcs[i] = "aaaaaa";
+        }
         AmazonElasticMapReduce mapReduce = AmazonElasticMapReduceClientBuilder.standard()
                 .withCredentials(credentialsProvider)
                 .withRegion("us-east-1")
@@ -26,6 +33,15 @@ public class Main {
                 .withJar("s3://dsp-211-ass3/Step0.jar")
                 .withArgs("s3://dsp-211-ass3/word-relatedness.txt","s3://dsp-211-ass3/v1");
         StepConfig stepConfig0 = new StepConfig()
+                .withName("test")
+                .withHadoopJarStep(step0)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
+        //STEP1
+        HadoopJarStepConfig step1 = new HadoopJarStepConfig()
+                .withJar("s3://dsp-211-ass3/Step1.jar")
+                .withArgs(biarcs);
+        StepConfig stepConfig1 = new StepConfig()
                 .withName("test")
                 .withHadoopJarStep(step0)
                 .withActionOnFailure("TERMINATE_JOB_FLOW");
@@ -52,6 +68,10 @@ public class Main {
         String jobFlowId = runJobFlowResult.getJobFlowId();
         System.out.println("Ran job flow with id: " + jobFlowId);
 
+    }
+
+    public static void test(String... args){
+        System.out.println(Arrays.toString(args));
     }
 
     public static void printFile(){

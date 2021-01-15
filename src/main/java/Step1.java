@@ -4,26 +4,41 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 import java.io.*;
+import java.util.HashMap;
 import java.util.HashSet;
 
 public class Step1 {
 
-    public static class MapperClass extends Mapper<LongWritable, Text,Text,Text> {
-//        https://stackoverflow.com/questions/34297358/upload-file-to-hdfs-using-dfsclient-on-java
-        HashSet<String> v1 = new HashSet<>();
+    public static class MapperClassV1 extends Mapper<LongWritable, Text,Text,Text> {
         @Override
         public void setup(Context context)  throws IOException, InterruptedException {
-//            File file = new File("path");
-//            for(String line:file){
-//                v1.add(line);
-//
-//            }
+        }
+
+        @Override
+        public void map(LongWritable rowNumber, Text value, Context context) throws IOException,  InterruptedException {
+            String[] split = value.toString().split("\\s+");
+            String headword = split[0];
+            context.write(new Text("0:0"), new Text(headword));
+        }
+
+        @Override
+        public void cleanup(Context context)  throws IOException, InterruptedException {
+        }
+
+    }
+
+    public static class MapperClassBiarcs extends Mapper<LongWritable, Text,Text,Text> {
+        @Override
+        public void setup(Context context)  throws IOException, InterruptedException {
         }
 
         @Override
@@ -33,10 +48,25 @@ public class Step1 {
             String headword = split[0];
             s.add(headword.toCharArray(),headword.length());
             s.stem();
-            headword = s.toString();
-//            if(v1.contains(word))
-
-
+            String occ = split[2];
+            String[] syntactic = split[1].split(" ");
+            String feature;
+            String dep;
+            String edges = occ;
+            for(int i=0; i<syntactic.length; i++){
+                String[] splitsngram = syntactic[i].split("/");
+                if(Integer.parseInt(splitsngram[3]) != 0){
+                    Stemmer ss = new Stemmer();
+                    feature = splitsngram[0];
+                    ss.add(feature.toCharArray(),feature.length());
+                    ss.stem();
+                    feature = ss.toString();
+                    dep = splitsngram[2];
+                    edges += ":"+feature+"-"+dep;
+//                    context.write(new Text("1:"+feature+"-"+dep),new Text(headword+":"+occ));
+                }
+            }
+            context.write(new Text("1:"+headword),new Text(edges));
         }
 
         @Override
@@ -54,16 +84,24 @@ public class Step1 {
 
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException,  InterruptedException {
-            String word = key.toString();
-            if(!set.contains(word)){
-                set.add(word);
-                context.write(new Text(word),new Text(""));
+            if(key.toString().equals("0:0")){
+                for(Text value : values){
+                    set.add(value.toString());
+                }
             }
-            for(Text value : values){
-                word = value.toString();
-                if(!set.contains(word)) {
-                    set.add(word);
-                    context.write(new Text(word), new Text(""));
+            else{
+                if(set.contains(key.toString())){
+                    int sum = 0;
+                    String features = "";
+                    for (Text value : values){
+                        String[] split = value.toString().split(":");
+                        int occ = Integer.parseInt(split[0]);
+                        sum += occ;
+                        features += "$"+value.toString();
+                    }
+                    context.write(key, new Text(sum + features));
+                    //the output of this reducer will look like:
+                    //alligator     sum$occ:feature1:feature2:feature3$occ:feature4:feature5:feature6$occ:feature.....
                 }
             }
         }
@@ -73,20 +111,28 @@ public class Step1 {
         }
     }
 
+    private static class PartitionerClass extends Partitioner<Text,Text> {
+        @Override
+        public int getPartition(Text key, Text value, int numPartitions){
+            return key.toString().split(":")[1].hashCode() % numPartitions;
+        }
+    }
+
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "step0");
-        job.setJarByClass(Step0.class);
-        job.setMapperClass(Step0.MapperClass.class);
-        job.setReducerClass(Step0.ReducerClass.class);
+        Job job = Job.getInstance(conf, "aggregateHeadwords");
+        job.setJarByClass(Step1.class);
+        job.setReducerClass(Step1.ReducerClass.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-        job.setInputFormatClass(TextInputFormat.class);
-        FileInputFormat.addInputPath(job, new Path(args[0]));
+        MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, MapperClassV1.class);
+        MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, MapperClassBiarcs.class);
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        job.setPartitionerClass(PartitionerClass.class);
+        job.setOutputFormatClass(TextOutputFormat.class);
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 
