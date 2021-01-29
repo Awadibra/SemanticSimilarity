@@ -1,5 +1,6 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -27,6 +28,10 @@ public class Step1 {
         public void map(LongWritable rowNumber, Text value, Context context) throws IOException,  InterruptedException {
             String[] split = value.toString().split("\\s+");
             String headword = split[0];
+            Stemmer s = new Stemmer();
+            s.add(headword.toCharArray(), headword.length());
+            s.stem();
+            headword = s.toString();
             context.write(new Text("0:0"), new Text(headword));
         }
 
@@ -64,6 +69,7 @@ public class Step1 {
                     dep = splitsngram[2];
                     edges += ":"+feature+"-"+dep;
 //                    context.write(new Text("1:"+feature+"-"+dep),new Text(headword+":"+occ));
+                    context.write(new Text("2:"+feature+"-"+dep), new Text(occ));
                 }
             }
             context.write(new Text("1:"+headword),new Text(edges));
@@ -77,20 +83,29 @@ public class Step1 {
 
     public static class ReducerClass extends Reducer<Text,Text,Text,Text> {
         HashSet<String> set;
+        int wordSum;
+        int featuresum;
         @Override
         public void setup(Context context)  throws IOException, InterruptedException {
             set = new HashSet<>();
+            wordSum = 0;
+            featuresum = 0;
         }
 
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException,  InterruptedException {
-            if(key.toString().equals("0:0")){
+            String word = key.toString().split(":")[0];
+
+            if(key.toString().equals("0")){
                 for(Text value : values){
                     set.add(value.toString());
                 }
             }
+            else if(key.toString().equals("2")){
+
+            }
             else{
-                if(set.contains(key.toString())){
+                if(set.contains(word)){
                     int sum = 0;
                     String features = "";
                     for (Text value : values){
@@ -99,7 +114,8 @@ public class Step1 {
                         sum += occ;
                         features += "$"+value.toString();
                     }
-                    context.write(key, new Text(sum + features));
+                    wordSum += sum;
+                    context.write(new Text(word), new Text(sum + features));
                     //the output of this reducer will look like:
                     //alligator     sum$occ:feature1:feature2:feature3$occ:feature4:feature5:feature6$occ:feature.....
                 }
@@ -108,6 +124,7 @@ public class Step1 {
 
         @Override
         public void cleanup(Context context)  throws IOException, InterruptedException {
+            context.write(new Text("totalWordsCount"), new Text(String.valueOf(wordSum)));
         }
     }
 
@@ -128,9 +145,11 @@ public class Step1 {
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-        MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, MapperClassV1.class);
-        MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, MapperClassBiarcs.class);
-        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, MapperClassV1.class);
+        for(int i = 2; i < args.length; i++){
+            MultipleInputs.addInputPath(job, new Path(args[i]), TextInputFormat.class, MapperClassBiarcs.class);
+        }
+        FileOutputFormat.setOutputPath(job, new Path(args[0]));
         job.setPartitionerClass(PartitionerClass.class);
         job.setOutputFormatClass(TextOutputFormat.class);
         System.exit(job.waitForCompletion(true) ? 0 : 1);
