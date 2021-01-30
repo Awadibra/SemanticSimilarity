@@ -30,8 +30,8 @@ public class Main {
 
         //todo: create input string with for, from 99 input files
         String[] biarcs = new String[4];
-        biarcs[0] = "s3://dsp-211-ass3/step1";
-        biarcs[1] = "s3://dsp-211-ass3/v1/part-r-00000";
+        biarcs[0] = "s3://dsp-211-ass3/step1out";
+        biarcs[1] = "s3://dsp-211-ass3/v1";
         biarcs[2] = "s3://assignment3dsp/biarcs/biarcs.21-of-99";
         biarcs[3] = "s3://assignment3dsp/biarcs/biarcs.22-of-99";
 //        for (int i=1; i< biarcs.length; i++){
@@ -52,12 +52,21 @@ public class Main {
                 .withHadoopJarStep(step0)
                 .withActionOnFailure("TERMINATE_JOB_FLOW");
 
+        //TEST3
+        HadoopJarStepConfig test3 = new HadoopJarStepConfig()
+                .withJar("s3://dsp-211-ass3/Test3.jar")
+                .withArgs("s3://dsp-211-ass3/Test.txt","s3://dsp-211-ass3/test3out");
+        StepConfig testConfig3 = new StepConfig()
+                .withName("test3")
+                .withHadoopJarStep(test3)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
         //STEP1
         HadoopJarStepConfig step1 = new HadoopJarStepConfig()
                 .withJar("s3://dsp-211-ass3/Step1.jar")
                 .withArgs(biarcs);
         StepConfig stepConfig1 = new StepConfig()
-                .withName("test")
+                .withName("step1")
                 .withHadoopJarStep(step1)
                 .withActionOnFailure("TERMINATE_JOB_FLOW");
 
@@ -73,7 +82,7 @@ public class Main {
         RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
                 .withName("semanticSimilarity")
                 .withInstances(instances)
-                .withSteps(stepConfig1)
+                .withSteps(testConfig3)
                 .withLogUri("s3n://dsp-211-ass3/logs/")
                 .withServiceRole("EMR_Role")
                 .withJobFlowRole("EMR_EC2_Role")
@@ -96,9 +105,21 @@ public class Main {
 
             s3.putObject(PutObjectRequest.builder()
                             .bucket("dsp-211-ass3")
-                            .key(key).acl(ObjectCannedACL.PUBLIC_READ)
+                            .key("Test1.jar").acl(ObjectCannedACL.PUBLIC_READ)
                             .build(),
-                    Paths.get(key));
+                    Paths.get("Test1.jar"));
+
+            s3.putObject(PutObjectRequest.builder()
+                            .bucket("dsp-211-ass3")
+                            .key("Test2.jar").acl(ObjectCannedACL.PUBLIC_READ)
+                            .build(),
+                    Paths.get("Test2.jar"));
+
+            s3.putObject(PutObjectRequest.builder()
+                            .bucket("dsp-211-ass3")
+                            .key("Test.txt").acl(ObjectCannedACL.PUBLIC_READ)
+                            .build(),
+                    Paths.get("Test.txt"));
 
 
         } catch (S3Exception e) {

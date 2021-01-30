@@ -83,13 +83,9 @@ public class Step1 {
 
     public static class ReducerClass extends Reducer<Text,Text,Text,Text> {
         HashSet<String> set;
-        int wordSum;
-        int featuresum;
         @Override
         public void setup(Context context)  throws IOException, InterruptedException {
             set = new HashSet<>();
-            wordSum = 0;
-            featuresum = 0;
         }
 
         @Override
@@ -101,9 +97,6 @@ public class Step1 {
                     set.add(value.toString());
                 }
             }
-            else if(key.toString().equals("2")){
-
-            }
             else{
                 if(set.contains(word)){
                     int sum = 0;
@@ -114,7 +107,6 @@ public class Step1 {
                         sum += occ;
                         features += "$"+value.toString();
                     }
-                    wordSum += sum;
                     context.write(new Text(word), new Text(sum + features));
                     //the output of this reducer will look like:
                     //alligator     sum$occ:feature1:feature2:feature3$occ:feature4:feature5:feature6$occ:feature.....
@@ -124,7 +116,6 @@ public class Step1 {
 
         @Override
         public void cleanup(Context context)  throws IOException, InterruptedException {
-            context.write(new Text("totalWordsCount"), new Text(String.valueOf(wordSum)));
         }
     }
 
