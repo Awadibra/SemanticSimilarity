@@ -8,6 +8,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import software.amazon.awssdk.regions.Region;
@@ -39,9 +40,9 @@ public class Step3 {
             for (Map.Entry<Writable, Writable> in : value.entrySet()) {
                 Text feature = new Text(in.getKey().toString());
                 LongWritable occ = (LongWritable) in.getValue();
+                featureSum += occ.get();
                 context.write(feature, new Text(key.toString() + ":" + occ.get()));
                 //1:feat1     alligator:sum:occ
-                featureSum += occ.get();
             }
         }
 
@@ -89,15 +90,15 @@ public class Step3 {
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "step2");
-        job.setJarByClass(Step2.class);
+        Job job = Job.getInstance(conf, "step3");
+        job.setJarByClass(Step3.class);
         job.setMapperClass(MapperClass.class);
         job.setReducerClass(ReducerClass.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-        job.setInputFormatClass(TextInputFormat.class);
+        job.setInputFormatClass(SequenceFileInputFormat.class);
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);

@@ -32,13 +32,13 @@ public class Main {
         String[] biarcs = new String[3];
         biarcs[0] = "s3://dsp-211-ass3/step1out";
         biarcs[1] = "s3://dsp-211-ass3/v1";
-        biarcs[2] = "s3://assignment3dsp/biarcs/biarcs.7-of-99";
-//        biarcs[3] = "s3://assignment3dsp/biarcs/";
+        biarcs[2] = "s3://assignment3dsp/biarcs/biarcs.11-of-99";
+//        biarcs[2] = "s3://assignment3dsp/biarcs/";
 //        for (int i=0; i< 10; i++){
 //            biarcs[i] = "biarcs.0"+i+"-of-99.gz";
 //        }
-        //        for (int i=11; i< 10; i++){
-//            biarcs[i] = "biarcs.0"+i+"-of-99.gz";
+//                for (int i=11; i< 15; i++){
+//            biarcs[i] = "biarcs."+i+"-of-99.gz";
 //        }
 
 
@@ -76,8 +76,8 @@ public class Main {
 
         JobFlowInstancesConfig instances = new JobFlowInstancesConfig()
                 .withInstanceCount(2)
-                .withMasterInstanceType(InstanceType.M4_LARGE.toString())
-                .withSlaveInstanceType(InstanceType.M4_LARGE.toString())
+                .withMasterInstanceType(InstanceType.M4_2_XLARGE.toString())
+                .withSlaveInstanceType(InstanceType.M4_2_XLARGE.toString())
                 .withHadoopVersion("2.6.0")
                 .withEc2KeyName("dspass1")
                 .withKeepJobFlowAliveWhenNoSteps(false)
