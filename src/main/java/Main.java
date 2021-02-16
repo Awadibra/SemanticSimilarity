@@ -29,13 +29,16 @@ public class Main {
 //        uploadJars();
 
         //todo: create input string with for, from 99 input files
-        String[] biarcs = new String[4];
+        String[] biarcs = new String[3];
         biarcs[0] = "s3://dsp-211-ass3/step1out";
         biarcs[1] = "s3://dsp-211-ass3/v1";
-        biarcs[2] = "s3://assignment3dsp/biarcs/biarcs.21-of-99";
-        biarcs[3] = "s3://assignment3dsp/biarcs/biarcs.22-of-99";
-//        for (int i=1; i< biarcs.length; i++){
-//            biarcs[i] = "biarcs.21-of-99.gz";
+        biarcs[2] = "s3://assignment3dsp/biarcs/biarcs.7-of-99";
+//        biarcs[3] = "s3://assignment3dsp/biarcs/";
+//        for (int i=0; i< 10; i++){
+//            biarcs[i] = "biarcs.0"+i+"-of-99.gz";
+//        }
+        //        for (int i=11; i< 10; i++){
+//            biarcs[i] = "biarcs.0"+i+"-of-99.gz";
 //        }
 
 
@@ -43,7 +46,16 @@ public class Main {
                 .withCredentials(credentialsProvider)
                 .withRegion("us-east-1")
                 .build();
-        //STEP0
+//        //TEST3
+//        HadoopJarStepConfig test3 = new HadoopJarStepConfig()
+//                .withJar("s3://dsp-211-ass3/Test3.jar")
+//                .withArgs("s3://dsp-211-ass3/Test.txt","s3://dsp-211-ass3/test3out");
+//        StepConfig testConfig3 = new StepConfig()
+//                .withName("test3")
+//                .withHadoopJarStep(test3)
+//                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
+        //STEP0 - build v1
         HadoopJarStepConfig step0 = new HadoopJarStepConfig()
                 .withJar("s3://dsp-211-ass3/Step0.jar")
                 .withArgs("s3://dsp-211-ass3/word-relatedness.txt","s3://dsp-211-ass3/v1");
@@ -52,16 +64,8 @@ public class Main {
                 .withHadoopJarStep(step0)
                 .withActionOnFailure("TERMINATE_JOB_FLOW");
 
-        //TEST3
-        HadoopJarStepConfig test3 = new HadoopJarStepConfig()
-                .withJar("s3://dsp-211-ass3/Test3.jar")
-                .withArgs("s3://dsp-211-ass3/Test.txt","s3://dsp-211-ass3/test3out");
-        StepConfig testConfig3 = new StepConfig()
-                .withName("test3")
-                .withHadoopJarStep(test3)
-                .withActionOnFailure("TERMINATE_JOB_FLOW");
 
-        //STEP1
+        //STEP1 - get words from corpus which also in v1
         HadoopJarStepConfig step1 = new HadoopJarStepConfig()
                 .withJar("s3://dsp-211-ass3/Step1.jar")
                 .withArgs(biarcs);
@@ -82,7 +86,7 @@ public class Main {
         RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
                 .withName("semanticSimilarity")
                 .withInstances(instances)
-                .withSteps(testConfig3)
+                .withSteps(stepConfig1)
                 .withLogUri("s3n://dsp-211-ass3/logs/")
                 .withServiceRole("EMR_Role")
                 .withJobFlowRole("EMR_EC2_Role")

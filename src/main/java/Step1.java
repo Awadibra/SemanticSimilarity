@@ -137,7 +137,7 @@ public class Step1 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
         MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, MapperClassV1.class);
-        for(int i = 2; i < args.length; i++){
+        for(int i = 2; i <= args.length; i++){
             MultipleInputs.addInputPath(job, new Path(args[i]), TextInputFormat.class, MapperClassBiarcs.class);
         }
         FileOutputFormat.setOutputPath(job, new Path(args[0]));
