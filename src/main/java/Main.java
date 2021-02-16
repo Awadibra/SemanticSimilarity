@@ -76,8 +76,8 @@ public class Main {
 
         JobFlowInstancesConfig instances = new JobFlowInstancesConfig()
                 .withInstanceCount(2)
-                .withMasterInstanceType(InstanceType.M4_2_XLARGE.toString())
-                .withSlaveInstanceType(InstanceType.M4_2_XLARGE.toString())
+                .withMasterInstanceType(InstanceType.M4_LARGE.toString())
+                .withSlaveInstanceType(InstanceType.M4_LARGE.toString())
                 .withHadoopVersion("2.6.0")
                 .withEc2KeyName("dspass1")
                 .withKeepJobFlowAliveWhenNoSteps(false)
