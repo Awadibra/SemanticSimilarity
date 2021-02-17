@@ -1,119 +1,132 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-import java.io.*;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.io.IOException;
 import java.util.HashSet;
 
 public class Step1 {
 
-    public static class MapperClassV1 extends Mapper<LongWritable, Text,Text,Text> {
+    public static class MapperClassV1 extends Mapper<LongWritable, Text, Text, Text> {
         @Override
-        public void setup(Context context)  throws IOException, InterruptedException {
+        public void setup(Context context) throws IOException, InterruptedException {
         }
 
         @Override
-        public void map(LongWritable rowNumber, Text value, Context context) throws IOException,  InterruptedException {
+        public void map(LongWritable rowNumber, Text value, Context context) throws IOException, InterruptedException {
+//            System.out.println("----------------------------mapV1------------------------------------");
+
             String[] split = value.toString().split("\\s+");
             String headword = split[0];
+            System.out.println("word before steam: " + headword);
+
             Stemmer s = new Stemmer();
             s.add(headword.toCharArray(), headword.length());
             s.stem();
             headword = s.toString();
+//            System.out.println("word after steam: " + headword);
+
             context.write(new Text("0:0"), new Text(headword));
+
         }
 
         @Override
-        public void cleanup(Context context)  throws IOException, InterruptedException {
+        public void cleanup(Context context) throws IOException, InterruptedException {
         }
 
     }
 
-    public static class MapperClassBiarcs extends Mapper<LongWritable, Text,Text,Text> {
+    public static class MapperClassBiarcs extends Mapper<LongWritable, Text, Text, Text> {
         @Override
-        public void setup(Context context)  throws IOException, InterruptedException {
+        public void setup(Context context) throws IOException, InterruptedException {
         }
 
         @Override
-        public void map(LongWritable rowNumber, Text value, Context context) throws IOException,  InterruptedException {
+        public void map(LongWritable rowNumber, Text value, Context context) throws IOException, InterruptedException {
             Stemmer s = new Stemmer();
-            System.out.println("----------------------------------------------------------------");
-            System.out.println(value.toString());
+//            System.out.println("---------------------------map biarcs-------------------------------------");
+//            System.out.println(value.toString());
             String[] split = value.toString().split("\t");
-            System.out.println(Arrays.toString(split));
+//            System.out.println(Arrays.toString(split));
             String headword = split[0];
-            s.add(headword.toCharArray(),headword.length());
+//            System.out.println("word before steam: " + headword);
+
+            s.add(headword.toCharArray(), headword.length());
             s.stem();
+//            System.out.println("word after steam: " + s.toString());
+
             String occ = split[2];
             String[] syntactic = split[1].split(" ");
             String feature;
             String dep;
             String edges = occ;
-            for(int i=0; i<syntactic.length; i++){
+            for (int i = 0; i < syntactic.length; i++) {
                 String[] splitsngram = syntactic[i].split("/");
-                System.out.println(syntactic[i]);
-                System.out.println(Arrays.toString(splitsngram));
-                if(!syntactic[i].startsWith("/") && splitsngram.length == 4 && (Integer.parseInt(splitsngram[3]) != 0)){
+//                System.out.println(syntactic[i]);
+//                System.out.println(Arrays.toString(splitsngram));
+                if (!syntactic[i].startsWith("/") && splitsngram.length == 4 && (Integer.parseInt(splitsngram[3]) != 0)) {
                     Stemmer ss = new Stemmer();
                     feature = splitsngram[0];
-                    ss.add(feature.toCharArray(),feature.length());
+//                    System.out.println("feature before steam: " + feature);
+
+                    ss.add(feature.toCharArray(), feature.length());
                     ss.stem();
                     feature = ss.toString();
+//                    System.out.println("feature after steam: " + feature);
+
                     dep = splitsngram[2];
-                    edges += ":"+feature+"-"+dep;
-//                    context.write(new Text("1:"+feature+"-"+dep),new Text(headword+":"+occ));
-                    context.write(new Text("2:"+feature+"-"+dep), new Text(occ));
+                    edges += ":" + feature + "-" + dep;
                 }
             }
-            context.write(new Text("1:"+headword),new Text(edges));
+            context.write(new Text("1:" + headword), new Text(edges));
         }
 
         @Override
-        public void cleanup(Context context)  throws IOException, InterruptedException {
+        public void cleanup(Context context) throws IOException, InterruptedException {
         }
 
     }
 
-    public static class ReducerClass extends Reducer<Text,Text,Text,Text> {
+    public static class ReducerClass extends Reducer<Text, Text, Text, Text> {
         HashSet<String> set;
+
         @Override
-        public void setup(Context context)  throws IOException, InterruptedException {
+        public void setup(Context context) throws IOException, InterruptedException {
             set = new HashSet<>();
         }
 
         @Override
-        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException,  InterruptedException {
-            String word = key.toString().split(":")[0];
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            System.out.println("---------------------------reduce-------------------------------------");
+            String[] splitKey=key.toString().split(":");
+            String option=splitKey[0];
+            String word =splitKey[1];
 
-            if(key.toString().equals("0")){
-                for(Text value : values){
+            if(option.equals("0")){
+                for (Text value : values) {
                     set.add(value.toString());
                 }
-            }
-            else{
-                if(set.contains(word)){
+            } else {
+
+                if (set.contains(word)) {
+                    System.out.println("word: " + word + " is part of the set");
                     int sum = 0;
                     String features = "";
-                    for (Text value : values){
+                    for (Text value : values) {
                         String[] split = value.toString().split(":");
                         int occ = Integer.parseInt(split[0]);
                         sum += occ;
-                        features += "$"+value.toString();
+                        features += "$" + value.toString();
                     }
                     context.write(new Text(word), new Text(sum + features));
                     //the output of this reducer will look like:
@@ -123,7 +136,7 @@ public class Step1 {
         }
 
         @Override
-        public void cleanup(Context context)  throws IOException, InterruptedException {
+        public void cleanup(Context context) throws IOException, InterruptedException {
         }
     }
 
@@ -138,14 +151,14 @@ public class Step1 {
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "aggregateHeadwords");
-        job.setJarByClass(Step1.class);
-        job.setReducerClass(Step1.ReducerClass.class);
+        job.setJarByClass(Step1Check.class);
+        job.setReducerClass(Step1Check.ReducerClass.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
         MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, MapperClassV1.class);
-        for(int i = 2; i < args.length; i++){
+        for (int i = 2; i < args.length; i++) {
             MultipleInputs.addInputPath(job, new Path(args[i]), SequenceFileInputFormat.class, MapperClassBiarcs.class);
         }
         FileOutputFormat.setOutputPath(job, new Path(args[0]));
@@ -628,7 +641,7 @@ public class Step1 {
             i = 0;
         }
 
-        public void clear(){
+        public void clear() {
 
         }
     }
