@@ -8,87 +8,76 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.HashSet;
 
 public class Step1 {
 
-    public static class MapperClassV1 extends Mapper<LongWritable, Text, Text, Text> {
+    public static class MapperClass extends Mapper<LongWritable, Text, Text, Text> {
+        HashSet<String> v1;
+
         @Override
         public void setup(Context context) throws IOException, InterruptedException {
+            Region region = Region.US_EAST_1;
+            S3Client s3 = S3Client.builder().region(region).build();
+            s3.getObject(GetObjectRequest.builder().bucket("dsp-211-ass3").key("v1.txt").build(),
+                    ResponseTransformer.toFile(Paths.get("v1.txt")));
+            v1 = new HashSet();
+            File file = new File("v1.txt");
+            try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] split = line.split("\\s+");
+                    Stemmer s = new Stemmer();
+                    s.add(split[0].toCharArray(), split[0].length());
+                    s.stem();
+                    String word = s.toString();
+                    v1.add(word);
+                }
+            }
         }
 
         @Override
         public void map(LongWritable rowNumber, Text value, Context context) throws IOException, InterruptedException {
-//            System.out.println("----------------------------mapV1------------------------------------");
-
-            String[] split = value.toString().split("\\s+");
-            String headword = split[0];
-            System.out.println("word before steam: " + headword);
-
             Stemmer s = new Stemmer();
+            String[] split = value.toString().split("\t");
+            String headword = split[0];
             s.add(headword.toCharArray(), headword.length());
             s.stem();
             headword = s.toString();
-//            System.out.println("word after steam: " + headword);
-
-            context.write(new Text("0:0"), new Text(headword));
-
-        }
-
-        @Override
-        public void cleanup(Context context) throws IOException, InterruptedException {
-        }
-
-    }
-
-    public static class MapperClassBiarcs extends Mapper<LongWritable, Text, Text, Text> {
-        @Override
-        public void setup(Context context) throws IOException, InterruptedException {
-        }
-
-        @Override
-        public void map(LongWritable rowNumber, Text value, Context context) throws IOException, InterruptedException {
-            Stemmer s = new Stemmer();
-//            System.out.println("---------------------------map biarcs-------------------------------------");
-//            System.out.println(value.toString());
-            String[] split = value.toString().split("\t");
-//            System.out.println(Arrays.toString(split));
-            String headword = split[0];
-//            System.out.println("word before steam: " + headword);
-
-            s.add(headword.toCharArray(), headword.length());
-            s.stem();
-//            System.out.println("word after steam: " + s.toString());
-
             String occ = split[2];
             String[] syntactic = split[1].split(" ");
             String feature;
             String dep;
             String edges = occ;
-            for (int i = 0; i < syntactic.length; i++) {
-                String[] splitsngram = syntactic[i].split("/");
-//                System.out.println(syntactic[i]);
-//                System.out.println(Arrays.toString(splitsngram));
-                if (!syntactic[i].startsWith("/") && splitsngram.length == 4 && (Integer.parseInt(splitsngram[3]) != 0)) {
-                    Stemmer ss = new Stemmer();
-                    feature = splitsngram[0];
-//                    System.out.println("feature before steam: " + feature);
-
-                    ss.add(feature.toCharArray(), feature.length());
-                    ss.stem();
-                    feature = ss.toString();
-//                    System.out.println("feature after steam: " + feature);
-
-                    dep = splitsngram[2];
-                    edges += ":" + feature + "-" + dep;
+            if(v1.contains(headword)){
+                System.out.println(headword);
+                for (int i = 0; i < syntactic.length; i++) {
+                    String[] splitsngram = syntactic[i].split("/");
+                    if (!syntactic[i].startsWith("/") && splitsngram.length == 4 && (Integer.parseInt(splitsngram[3]) != 0)) {
+                        Stemmer ss = new Stemmer();
+                        feature = splitsngram[0];
+                        ss.add(feature.toCharArray(), feature.length());
+                        ss.stem();
+                        feature = ss.toString();
+                        dep = splitsngram[2];
+                        edges += ":" + feature + "-" + dep;
+                    }
                 }
+                context.write(new Text(headword), new Text(edges));
+                //alligator     occ:feat1:feat2:feat3
             }
-            context.write(new Text("1:" + headword), new Text(edges));
         }
 
         @Override
@@ -98,41 +87,29 @@ public class Step1 {
     }
 
     public static class ReducerClass extends Reducer<Text, Text, Text, Text> {
-        HashSet<String> set;
 
         @Override
         public void setup(Context context) throws IOException, InterruptedException {
-            set = new HashSet<>();
+
         }
 
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-            System.out.println("---------------------------reduce-------------------------------------");
-            String[] splitKey=key.toString().split(":");
-            String option=splitKey[0];
-            String word =splitKey[1];
-
-            if(option.equals("0")){
-                for (Text value : values) {
-                    set.add(value.toString());
-                }
-            } else {
-
-                if (set.contains(word)) {
-                    System.out.println("word: " + word + " is part of the set");
-                    int sum = 0;
-                    String features = "";
-                    for (Text value : values) {
-                        String[] split = value.toString().split(":");
-                        int occ = Integer.parseInt(split[0]);
-                        sum += occ;
-                        features += "$" + value.toString();
-                    }
-                    context.write(new Text(word), new Text(sum + features));
-                    //the output of this reducer will look like:
-                    //alligator     sum$occ:feature1:feature2:feature3$occ:feature4:feature5:feature6$occ:feature.....
-                }
+            String word = key.toString();
+            int sum = 0;
+//            String features = "";
+            System.out.println(word);
+            for (Text value : values) {
+                String[] split = value.toString().split(":");
+                int occ = Integer.parseInt(split[0]);
+                sum += occ;
+//                features += "$" + value.toString();
+                context.write(new Text(word+":"+sum), value);
             }
+//            context.write(new Text(word), new Text(sum + features));
+
+            //the output of this reducer will look like:
+            //alligator:sum     occ:feat1:feat2:feat3
         }
 
         @Override
@@ -140,30 +117,20 @@ public class Step1 {
         }
     }
 
-    private static class PartitionerClass extends Partitioner<Text,Text> {
-        @Override
-        public int getPartition(Text key, Text value, int numPartitions){
-            return key.toString().split(":")[1].hashCode() % numPartitions;
-        }
-    }
-
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "aggregateHeadwords");
-        job.setJarByClass(Step1Check.class);
-        job.setReducerClass(Step1Check.ReducerClass.class);
+        job.setJarByClass(Step1new.class);
+        job.setReducerClass(Step1new.ReducerClass.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-        MultipleInputs.addInputPath(job, new Path(args[1]), TextInputFormat.class, MapperClassV1.class);
-        for (int i = 2; i < args.length; i++) {
-            MultipleInputs.addInputPath(job, new Path(args[i]), SequenceFileInputFormat.class, MapperClassBiarcs.class);
+        for (int i = 1; i < args.length; i++) {
+            MultipleInputs.addInputPath(job, new Path(args[i]), SequenceFileInputFormat.class, MapperClass.class);
         }
         FileOutputFormat.setOutputPath(job, new Path(args[0]));
-        job.setPartitionerClass(PartitionerClass.class);
-        job.setOutputFormatClass(TextOutputFormat.class);
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 

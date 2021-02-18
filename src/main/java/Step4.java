@@ -81,6 +81,7 @@ public class Step4 {
                 map.put(feature, new Text(occ5 + ":" + occ6 + ":" + occ7 + ":" + occ8));
             }
             context.write(new Text(word), map);
+            //alligator     {feat: eq5:eq6:eq7:eq8,...}
             map.clear();
             //
         }

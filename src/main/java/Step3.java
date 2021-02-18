@@ -42,7 +42,7 @@ public class Step3 {
                 LongWritable occ = (LongWritable) in.getValue();
                 featureSum += occ.get();
                 context.write(feature, new Text(key.toString() + ":" + occ.get()));
-                //1:feat1     alligator:sum:occ
+                //feat1     alligator:sum:occ
             }
         }
 

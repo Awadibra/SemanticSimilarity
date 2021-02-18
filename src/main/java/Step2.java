@@ -20,18 +20,18 @@ public class Step2 {
         @Override
         public void map(LongWritable rowNumber, Text value, Context context) throws IOException,  InterruptedException {
             String[] split = value.toString().split("\t");
-            String[] vals = split[1].split("$");
+//            String[] vals = split[1].split("$");
             String word = split[0];
-            String sum = vals[0];
-            for(int i = 1; i<vals.length; i++){
-                String[] occFeat = vals[i].split(":");
+//            String sum = vals[0];
+//            for(int i = 1; i<vals.length; i++){
+                String[] occFeat = split[1].split(":");
                 String occ = occFeat[0];
                 for (int j = 1; j< occFeat.length; j++){
                     String feature = occFeat[j];
-                    context.write(new Text(word+":"+sum), new Text(feature+":"+occ));
+                    context.write(new Text(word), new Text(feature+":"+occ));
                     //      dog:sum   bite-verb:70
                 }
-            }
+//            }
         }
 
         @Override
