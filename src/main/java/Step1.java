@@ -20,7 +20,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.HashSet;
+import java.util.*;
 
 public class Step1 {
 
@@ -62,7 +62,6 @@ public class Step1 {
             String dep;
             String edges = occ;
             if(v1.contains(headword)){
-                System.out.println(headword);
                 for (int i = 0; i < syntactic.length; i++) {
                     String[] splitsngram = syntactic[i].split("/");
                     if (!syntactic[i].startsWith("/") && splitsngram.length == 4 && (Integer.parseInt(splitsngram[3]) != 0)) {
@@ -75,6 +74,8 @@ public class Step1 {
                         edges += ":" + feature + "-" + dep;
                     }
                 }
+                System.out.println("========sent from map=========");
+                System.out.println(headword+" "+edges);
                 context.write(new Text(headword), new Text(edges));
                 //alligator     occ:feat1:feat2:feat3
             }
@@ -96,18 +97,19 @@ public class Step1 {
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
             String word = key.toString();
-            int sum = 0;
-//            String features = "";
-            System.out.println(word);
-            for (Text value : values) {
+            long sum = 0;
+            Iterator<Text> it = values.iterator();
+            List<Text> cache = new ArrayList<>();
+            while (it.hasNext()) {
+                Text value = it.next();
                 String[] split = value.toString().split(":");
-                int occ = Integer.parseInt(split[0]);
+                long occ = Long.parseLong(split[0]);
                 sum += occ;
-//                features += "$" + value.toString();
-                context.write(new Text(word+":"+sum), value);
+                cache.add(new Text(value.toString()));
             }
-//            context.write(new Text(word), new Text(sum + features));
-
+            for(Text value: cache){
+                context.write(new Text(word+":"+sum),new Text(value.toString()));
+            }
             //the output of this reducer will look like:
             //alligator:sum     occ:feat1:feat2:feat3
         }
@@ -120,9 +122,9 @@ public class Step1 {
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "aggregateHeadwords");
-        job.setJarByClass(Step1new.class);
-        job.setReducerClass(Step1new.ReducerClass.class);
+        Job job = Job.getInstance(conf, "step1");
+        job.setJarByClass(Step1.class);
+        job.setReducerClass(Step1.ReducerClass.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
