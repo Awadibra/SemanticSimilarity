@@ -47,7 +47,7 @@ public class Step5 {
                     String[] split = line.split("\\s+");
                     String first = split[0];
                     String secWord = split[1];
-                    if (lastHead == null | lastHead.equals(first)){
+                    if (lastHead == null || lastHead.equals(first)){
                         s.add(secWord.toCharArray(),secWord.length());
                         s.stem();
                         secWord = s.toString();
