@@ -66,6 +66,8 @@ public class Step2 {
             context.write(key, map);
             map.clear();
             // alligator:sum    map{feature:occ,...}
+            //alligator:55      map{bite-sub:10}
+
         }
 
         @Override
