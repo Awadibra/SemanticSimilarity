@@ -6,6 +6,7 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -15,10 +16,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -74,8 +72,6 @@ public class Step1 {
                         edges += ":" + feature + "-" + dep;
                     }
                 }
-                System.out.println("========sent from map=========");
-                System.out.println(headword+" "+edges);
                 context.write(new Text(headword), new Text(edges));
                 //alligator     occ:feat1:feat2:feat3
             }
@@ -124,15 +120,15 @@ public class Step1 {
         Configuration conf = new Configuration();
         Job job = Job.getInstance(conf, "step1");
         job.setJarByClass(Step1.class);
+        job.setMapperClass(MapperClass.class);
         job.setReducerClass(Step1.ReducerClass.class);
         job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-        for (int i = 1; i < args.length; i++) {
-            MultipleInputs.addInputPath(job, new Path(args[i]), SequenceFileInputFormat.class, MapperClass.class);
-        }
-        FileOutputFormat.setOutputPath(job, new Path(args[0]));
+        job.setInputFormatClass(SequenceFileInputFormat.class);
+        FileInputFormat.addInputPath(job,new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 

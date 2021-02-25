@@ -1,13 +1,11 @@
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.MapWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
@@ -19,26 +17,21 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.HashMap;
 
-public class Step5 {
+public class Step6 {
 
-    public static class MapperClass extends Mapper<Text, MapWritable, Text, MapWritable> {
-        HashMap<String, ArrayList<String>> pairs;
-        HashMap<String, ArrayList<String>> invertPairs;
+    public static class MapperClass extends Mapper<LongWritable, Text, Text, Text> {
+        HashMap<String, String> pairsRelatedness;
 
-
-        //v1
         @Override
-        public void setup(Context context) throws IOException {
+        public void setup(Context context) throws IOException, InterruptedException {
             Region region = Region.US_EAST_1;
             S3Client s3 = S3Client.builder().region(region).build();
             s3.getObject(GetObjectRequest.builder().bucket("dsp-211-ass3").key("word-relatedness.txt").build(),
-                    ResponseTransformer.toFile(Paths.get("pairs.txt")));
-            pairs = new HashMap<>();
-            invertPairs = new HashMap<>();
-
-            File file = new File("pairs.txt");
+                    ResponseTransformer.toFile(Paths.get("pairsRelatedness.txt")));
+            pairsRelatedness = new HashMap<>();
+            File file = new File("pairsRelatedness.txt");
             try (BufferedReader br = new BufferedReader(new FileReader(file))) {
                 String line;
                 while ((line = br.readLine()) != null) {
@@ -47,47 +40,28 @@ public class Step5 {
                     String[] split = line.split("\\s+");
                     String first = split[0];
                     String second = split[1];
+                    String relatedness = split[2];
                     s1.add(first.toCharArray(), first.length());
                     s1.stem();
                     s2.add(second.toCharArray(), second.length());
                     s2.stem();
                     String stemmedFirst = s1.toString();
                     String stemmedSecond = s2.toString();
-                    if (!pairs.containsKey(stemmedFirst)) {
-                        pairs.put(stemmedFirst, new ArrayList<String>());
-                    }
-                    pairs.get(stemmedFirst).add(stemmedSecond);
-                }
-            }
-            for (String word : pairs.keySet()) {
-                for (String second : pairs.get(word)) {
-                    if (!invertPairs.containsKey(second)) {
-                        invertPairs.put(second, new ArrayList<>());
-                    }
-                    invertPairs.get(second).add(word);
+                    pairsRelatedness.put(stemmedFirst + ":" + stemmedSecond, relatedness);
                 }
             }
         }
 
-        @Override
-        public void map(Text key, MapWritable value, Context context) throws IOException, InterruptedException {
-            String word = key.toString();
-            ArrayList<String> list1 = pairs.get(word);
-            ArrayList<String> list2 = invertPairs.get(word);
-            MapWritable map = new MapWritable(value);
-            if (list1 != null) {
-                for (String sec : list1) {
-                    context.write(new Text(word + ":" + sec), map);
-                }
-            }
-            if (list2 != null) {
-                for (String sec : list2) {
-                    context.write(new Text(sec + ":" + word), map);
-                }
-            }
 
-            //alligator:dog alligatorVector
-            //alligator:dog dogVector
+        @Override
+        public void map(LongWritable line, Text value, Context context) throws IOException, InterruptedException {
+            String[] split = value.toString().split("\t");
+            String pair = split[0];
+            String vector = split[1];
+            String relatedness = pairsRelatedness.get(pair);
+            vector += "," + relatedness;
+            context.write(new Text(vector), new Text());
+            //vector,true/falue
         }
 
         @Override
@@ -96,247 +70,42 @@ public class Step5 {
 
     }
 
-    public static class ReducerClass extends Reducer<Text, MapWritable, Text, Text> {
+    public static class ReducerClass extends Reducer<Text, Text, Text, Text> {
         @Override
         public void setup(Context context) throws IOException, InterruptedException {
+            context.write(new Text("@RELATION SemanticSimilarity"), new Text());
+            for (int i = 0; i < 24; i++)
+                context.write(new Text("@ATTRIBUTE value" + i + "REAL"), new Text());
+            context.write(new Text("@ATTRIBUTE relatedness {true,false}"), new Text());
+            context.write(new Text("@DATA"), new Text());
+
         }
 
         @Override
-        public void reduce(Text key, Iterable<MapWritable> values, Context context) throws IOException, InterruptedException {
-            Iterator<MapWritable> it = values.iterator();
-            List<MapWritable> cache = new ArrayList<>();
-            while (it.hasNext()) {
-                MapWritable next = new MapWritable(it.next());
-                cache.add(next);
-            }
-            if (cache.size() == 2) {
-                MapWritable l1 = new MapWritable(cache.get(0));
-                MapWritable l2 = new MapWritable(cache.get(1));
-                syncMaps(l1, l2);
-                double[] vector = calcVector(l1, l2);
-                String[] vec = new String[24];
-                for (int i = 0; i < 24; i++) {
-//                    vec[i] = String.format("%.20f", vector[i]);
-                    vec[i] = String.valueOf(vector[i]);
-                }
-                String v = String.join(",", vec);
-                context.write(key, new Text(v));
-
-            }
-            //alligator:frog    24vector
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            context.write(key, new Text());
         }
 
         @Override
         public void cleanup(Context context) throws IOException, InterruptedException {
         }
-    }
 
+    }
 
     public static void main(String[] args) throws Exception {
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "step5");
-        job.setJarByClass(Step5.class);
+        Job job = Job.getInstance(conf, "step6");
+        job.setJarByClass(Step6.class);
         job.setMapperClass(MapperClass.class);
         job.setReducerClass(ReducerClass.class);
         job.setMapOutputKeyClass(Text.class);
-        job.setMapOutputValueClass(MapWritable.class);
+        job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
-        job.setInputFormatClass(SequenceFileInputFormat.class);
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
-
-    private static void syncMaps(MapWritable l1, MapWritable l2) {
-
-        for (Writable in : l1.keySet()) {
-            if (!l2.containsKey(in)) {
-                l2.put(in, new Text("0:0:0:0"));
-            }
-        }
-        for (Writable in : l2.keySet()) {
-            if (!l1.containsKey(in)) {
-                l1.put(in, new Text("0:0:0:0"));
-            }
-        }
-
-    }
-
-    private static double eq9X(MapWritable l1, MapWritable l2, int index) {
-        Set<Writable> keys = l1.keySet();
-        double sum = 0.0;
-        for (Writable k : keys) {
-            String t1 = l1.get(k).toString();
-            String t2 = l2.get(k).toString();
-            String[] split1 = t1.split(":");
-            String[] split2 = t2.split(":");
-            double v1 = Double.parseDouble(split1[index]);
-            double v2 = Double.parseDouble(split2[index]);
-            sum += Math.abs(v1 - v2);
-        }
-        return sum;
-    }
-
-    private static double eq10X(MapWritable l1, MapWritable l2, int index) {
-        Set<Writable> keys = l1.keySet();
-        double sum = 0.0;
-        for (Writable k : keys) {
-            String t1 = l1.get(k).toString();
-            String t2 = l2.get(k).toString();
-            String[] split1 = t1.split(":");
-            String[] split2 = t2.split(":");
-            double v1 = Double.parseDouble(split1[index]);
-            double v2 = Double.parseDouble(split2[index]);
-            sum += Math.pow(v1 - v2, 2);
-        }
-
-        return Math.sqrt(sum);
-    }
-
-    private static double eq11X(MapWritable l1, MapWritable l2, int index) {
-        Set<Writable> keys = l1.keySet();
-        double sum = 0.0;
-        double e1 = 0.0;
-        double e2 = 0.0;
-        for (Writable k : keys) {
-            String t1 = l1.get(k).toString();
-            String t2 = l2.get(k).toString();
-            String[] split1 = t1.split(":");
-            String[] split2 = t2.split(":");
-            double v1 = Double.parseDouble(split1[index]);
-            e1 += (v1 * v1);
-            double v2 = Double.parseDouble(split2[index]);
-            e2 += (v2 * v2);
-            sum += (v1 * v2);
-        }
-        e1 = Math.sqrt(e1);
-        e2 = Math.sqrt(e2);
-
-        return sum / (e1 * e2);
-    }
-
-    private static double eq13X(MapWritable l1, MapWritable l2, int index) {
-
-        Set<Writable> keys = l1.keySet();
-        double sum1 = 0.0;
-        double sum2 = 0.0;
-        for (Writable k : keys) {
-            String t1 = l1.get(k).toString();
-            String t2 = l2.get(k).toString();
-            String[] split1 = t1.split(":");
-            String[] split2 = t2.split(":");
-            double v1 = Double.parseDouble(split1[index]);
-            double v2 = Double.parseDouble(split2[index]);
-            sum1 += Math.min(v1, v2);
-            sum2 += Math.max(v1, v2);
-        }
-
-        return sum1 / sum2;
-    }
-
-    private static double eq15X(MapWritable l1, MapWritable l2, int index) {
-
-        Set<Writable> keys = l1.keySet();
-        double sum1 = 0.0;
-        double sum2 = 0.0;
-        for (Writable k : keys) {
-            String t1 = l1.get(k).toString();
-            String t2 = l2.get(k).toString();
-            String[] split1 = t1.split(":");
-            String[] split2 = t2.split(":");
-            double v1 = Double.parseDouble(split1[index]);
-            double v2 = Double.parseDouble(split2[index]);
-            sum1 += Math.min(v1, v2);
-            sum2 += (v1 + v2);
-        }
-
-        return (2 * sum1) / sum2;
-    }
-
-    private static double eq17X(MapWritable l1, MapWritable l2, int index) {
-
-        Set<Writable> keys = l1.keySet();
-
-        int i = 0;
-        double[] average = new double[keys.size()];
-        double[] l1arr = new double[keys.size()];
-        double[] l2arr = new double[keys.size()];
-        for (Writable k : keys) {
-            String t1 = l1.get(k).toString();
-            String t2 = l2.get(k).toString();
-
-            String[] split1 = t1.split(":");
-            String[] split2 = t2.split(":");
-            double v1 = Double.parseDouble(split1[index]);
-            double v2 = Double.parseDouble(split2[index]);
-
-            l1arr[i] = v1;
-            l2arr[i] = v2;
-            average[i] = (v1 + v2) / 2;
-            i++;
-        }
-        double ret = (eq16(l1arr, average) + eq16(l2arr, average));
-//        System.out.println("sum: " + ret);
-
-        return ret;
-    }
-
-    private static double eq16(double[] arr, double[] average) {
-//        System.out.println("eq16:");
-        double res = 0.0;
-        for (int i = 0; i < arr.length; ++i) {
-            //log>=0
-            if (arr[i] == 0 || average[i] == 0.0 || average[i]==0 || (arr[i] / average[i])<0) {
-                continue;
-            }
-//            System.out.println("i "+i +" arr[i] " + arr[i] + "average[i] "+average[i]+" Math.log " + Math.log(arr[i] / average[i]));
-            double eq = (arr[i] * Math.log(arr[i] / average[i]));
-            res += eq;
-        }
-
-//        System.out.println("sum: " + res / Math.log(2));
-
-        return res / Math.log(2);
-
-    }
-
-    private static double[] calcVector(MapWritable l1, MapWritable l2) {
-        double[] vector = new double[24];
-        int index = 0;
-        //eq9
-        for (int i = 0; i < 4; i++) {
-            vector[index] = eq9X(l1, l2, i);
-            index++;
-        }
-        //eq10
-        for (int i = 0; i < 4; i++) {
-            vector[index] = eq10X(l1, l2, i);
-            index++;
-        }
-        //e11
-        for (int i = 0; i < 4; i++) {
-            vector[index] = eq11X(l1, l2, i);
-            index++;
-        }
-        //eq13
-        for (int i = 0; i < 4; i++) {
-            vector[index] = eq13X(l1, l2, i);
-            index++;
-        }
-        //eq15
-        for (int i = 0; i < 4; i++) {
-            vector[index] = eq15X(l1, l2, i);
-            index++;
-        }
-        //eq17
-        for (int i = 0; i < 4; i++) {
-            vector[index] = eq17X(l1, l2, i);
-            index++;
-        }
-        return vector;
-    }
-
 
     private static class Stemmer {
         private char[] b;
@@ -815,4 +584,6 @@ public class Step5 {
 
         }
     }
+
 }
+
