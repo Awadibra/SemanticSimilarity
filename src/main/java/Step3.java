@@ -25,22 +25,17 @@ import java.util.Map;
 public class Step3 {
 
     public static class MapperClass extends Mapper<Text, MapWritable, Text, Text> {
-        long wordSum;
-        long featureSum;
+
 
         @Override
         public void setup(Context context) throws IOException, InterruptedException {
-            wordSum = 0;
-            featureSum = 0;
         }
 
         @Override
         public void map(Text key, MapWritable value, Context context) throws IOException, InterruptedException {
-            wordSum += Long.parseLong(key.toString().split(":")[1]);
             for (Map.Entry<Writable, Writable> in : value.entrySet()) {
                 Text feature = new Text(in.getKey().toString());
                 LongWritable occ = (LongWritable) in.getValue();
-                featureSum += occ.get();
                 context.write(feature, new Text(key.toString() + ":" + occ.get()));
                 //feat1     alligator:sum:occ
             }
@@ -48,7 +43,6 @@ public class Step3 {
 
         @Override
         public void cleanup(Context context) throws IOException, InterruptedException {
-            uploadTotals(wordSum, featureSum);
         }
 
     }
@@ -56,11 +50,15 @@ public class Step3 {
     public static class ReducerClass extends Reducer<Text, Text, Text, Text> {
         HashMap<String, String> map;
         long totalOcc;
+        long wordSum;
+        long featureSum;
 
         @Override
         public void setup(Context context) throws IOException, InterruptedException {
             map = new HashMap<>();
             totalOcc = 0;
+            wordSum = 0;
+            featureSum = 0;
         }
 
         @Override
@@ -71,9 +69,11 @@ public class Step3 {
                 String word = split[0];
                 String sum = split[1];
                 String occ = split[2];
+                wordSum += Long.parseLong(sum);
                 totalOcc += Long.parseLong(occ);
                 map.put(word + ":" + sum, occ);
             }
+            featureSum+=totalOcc;
             for (Map.Entry<String, String> in : map.entrySet()) {
                 String word = in.getKey();
                 String occ = in.getValue();
@@ -84,6 +84,7 @@ public class Step3 {
 
         @Override
         public void cleanup(Context context) throws IOException, InterruptedException {
+            uploadTotals(wordSum, featureSum);
         }
     }
 
@@ -99,6 +100,7 @@ public class Step3 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
         job.setInputFormatClass(SequenceFileInputFormat.class);
+        job.setNumReduceTasks(1);
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);

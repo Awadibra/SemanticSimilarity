@@ -15,6 +15,8 @@ import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.*;
 import java.nio.file.Paths;
@@ -84,10 +86,10 @@ public class Step1 {
     }
 
     public static class ReducerClass extends Reducer<Text, Text, Text, Text> {
-
+        HashMap<String, Long> map;
         @Override
         public void setup(Context context) throws IOException, InterruptedException {
-
+            map = new HashMap<>();
         }
 
         @Override
@@ -95,23 +97,41 @@ public class Step1 {
             String word = key.toString();
             long sum = 0;
             Iterator<Text> it = values.iterator();
-            List<Text> cache = new ArrayList<>();
             while (it.hasNext()) {
                 Text value = it.next();
                 String[] split = value.toString().split(":");
                 long occ = Long.parseLong(split[0]);
                 sum += occ;
-                cache.add(new Text(value.toString()));
+                context.write(new Text(word),new Text(value.toString()));
             }
-            for(Text value: cache){
-                context.write(new Text(word+":"+sum),new Text(value.toString()));
-            }
+            map.put(word,sum);
             //the output of this reducer will look like:
-            //alligator:sum     occ:feat1:feat2:feat3
+            //alligator     occ:feat1:feat2:feat3
         }
 
         @Override
         public void cleanup(Context context) throws IOException, InterruptedException {
+            System.out.println("number of words = "+map.keySet().size());
+            uploadSums(map);
+        }
+        private static void uploadSums(HashMap<String,Long> map) {
+            try {
+                PrintWriter writer = new PrintWriter("sums.txt", "UTF-8");
+                for(Map.Entry entry : map.entrySet()){
+                    writer.println(entry.getKey()+"\t"+entry.getValue());
+                }
+                writer.close();
+                Region region = Region.US_EAST_1;
+                S3Client s3 = S3Client.builder().region(region).build();
+
+                s3.putObject(PutObjectRequest.builder()
+                                .bucket("dsp-211-ass3")
+                                .key("sums.txt").acl(ObjectCannedACL.PUBLIC_READ)
+                                .build(),
+                        Paths.get("sums.txt"));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -127,6 +147,7 @@ public class Step1 {
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
         job.setInputFormatClass(SequenceFileInputFormat.class);
+        job.setNumReduceTasks(1);
         FileInputFormat.addInputPath(job,new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);
