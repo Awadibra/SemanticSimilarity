@@ -67,26 +67,26 @@ public class Step5 {
                     invertPairs.get(second).add(word);
                 }
             }
-            System.out.println("PAIRS:");
-            for (String word : pairs.keySet()) {
-                for (String second : pairs.get(word)) {
-                    System.out.println(word + "\t" + second);
-                }
-            }
-            System.out.println("INVERTED PAIRS:");
-            for (String word : invertPairs.keySet()) {
-                for (String second : invertPairs.get(word)) {
-                    System.out.println(word + "\t" + second);
-                }
-            }
+//            System.out.println("PAIRS:");
+//            for (String word : pairs.keySet()) {
+//                for (String second : pairs.get(word)) {
+//                    System.out.println(word + "\t" + second);
+//                }
+//            }
+//            System.out.println("INVERTED PAIRS:");
+//            for (String word : invertPairs.keySet()) {
+//                for (String second : invertPairs.get(word)) {
+//                    System.out.println(word + "\t" + second);
+//                }
+//            }
         }
 
         @Override
         public void map(Text key, MapWritable value, Context context) throws IOException, InterruptedException {
             String word = key.toString();
-            System.out.println("word is: " + word);
-            ArrayList<String> list1 = (ArrayList) pairs.get(word);
-            ArrayList<String> list2 = (ArrayList) invertPairs.get(word);
+//            System.out.println("word is: " + word);
+            ArrayList<String> list1 = pairs.get(word);
+            ArrayList<String> list2 = invertPairs.get(word);
             MapWritable map = new MapWritable(value);
             if (list1 != null) {
                 for (String sec : list1) {
@@ -97,7 +97,6 @@ public class Step5 {
                 for (String sec : list2) {
                     context.write(new Text(sec + ":" + word), map);
                 }
-
             }
 
             //alligator:dog alligatorVector
@@ -118,29 +117,73 @@ public class Step5 {
         @Override
         public void reduce(Text key, Iterable<MapWritable> values, Context context) throws IOException, InterruptedException {
             Iterator<MapWritable> it = values.iterator();
+//            System.out.println("key: " + key.toString());
             List<MapWritable> cache = new ArrayList<>();
             while (it.hasNext()) {
-                cache.add(it.next());
+//                System.out.println("key: "+key);
+                MapWritable next = new MapWritable(it.next());
+//                System.out.println("map added to cache:");
+//                for (Map.Entry<Writable, Writable> in : next.entrySet()) {
+//                    System.out.println(in.getKey()+" "+in.getValue());
+//                }
+                cache.add(next);
             }
             if (cache.size() == 2) {
+//                System.out.println("before sync");
                 MapWritable l1 = new MapWritable(cache.get(0));
                 MapWritable l2 = new MapWritable(cache.get(1));
-                //syncronize maps
-                syncMaps(l1, l2);
-                for(Map.Entry entry: l1.entrySet()){
-                    System.out.println(entry.getKey());
-                    System.out.println(entry.getValue());
+//                for (Map.Entry entry : l1.entrySet()) {
+//                    System.out.println(entry.getKey());
+//                    System.out.println(entry.getValue());
+//                }
+                if (key.toString().equals("bomber:bomb")) {
+                    for (Writable in : l1.keySet()) {
+                        System.out.println(l1.get(in).toString() + " " + l2.get(in).toString());
+                    }
                 }
+
+
+//                Set<Writable> sourceKeysList = new HashSet<>(l1.keySet());
+//                Set<Writable> targetKeysList = new HashSet<>(l2.keySet());
+//                Set<Writable> sourceValuesList = new HashSet<>(l1.values());
+//                Set<Writable> targetValuesList = new HashSet<>(l2.values());
+//                System.out.println("l1 and l2 not common keys");
+//                System.out.println(sourceKeysList.removeAll(targetKeysList));
+//                System.out.println("l1 and l2 common values");
+//                System.out.println(sourceValuesList.retainAll(targetValuesList));
+
+
+                //syncronize maps
+//                System.out.println("++++++++ "+ key.toString() +" ++++++++");
+//                System.out.println("before sync: l1: "+l1.size()+" l2: "+l2.size());
+//                System.out.println("does l1 key set equals to l2? "+ l1.keySet().equals( l2.keySet() ));
+//                System.out.println("does l1 values equals to l2? "+ l1.values().equals( l2.values() ));
+//                System.out.println("does l1 equals to l2? "+ l1.equals(l2));
+
+                syncMaps(l1, l2);
+
+//                System.out.println("after sync: l1: "+l1.size()+" l2: "+l2.size());
+//                System.out.println("does l1 key set equals to l2? "+ l1.keySet().equals( l2.keySet() ));
+//                System.out.println("does l1 values equals to l2? "+ l1.values().equals( l2.values() ));
+//                System.out.println("does l1 equals to l2? "+ l1.equals(l2));
+
+//                System.out.println("after sync");
+//                for (Map.Entry entry : l1.entrySet()) {
+//                    System.out.println(entry.getKey());
+//                    System.out.println(entry.getValue());
+//                }
                 double[] vector = calcVector(l1, l2);
-                System.out.println("VECTOR of: "+key.toString());
-                System.out.println(Arrays.toString(vector));
+//                System.out.println("VECTOR of: " + key.toString());
+//                System.out.println(Arrays.toString(vector));
                 String[] vec = new String[24];
                 for (int i = 0; i < 24; i++) {
-                    vec[i] = String.format("%.20f", vector[i]);
+//                    vec[i] = String.format("%.20f", vector[i]);
+                    vec[i] = String.valueOf(vector[i]);
                 }
-                System.out.println(Arrays.toString(vec));
+//                System.out.println(Arrays.toString(vec));
                 String v = String.join(",", vec);
                 context.write(key, new Text(v));
+
             }
             //alligator:frog    24vector
         }
@@ -168,22 +211,29 @@ public class Step5 {
     }
 
     private static void syncMaps(MapWritable l1, MapWritable l2) {
+//        System.out.println("in sync: l1: "+l1.size()+" l2: "+l2.size());
+//        System.out.println("does l1 equals to l2? "+ l1.keySet().equals( l2.keySet() ));  //true
+
         for (Writable in : l1.keySet()) {
+//            System.out.println("does l2 contains "+in +"? "+l2.containsKey(in)+ "and "+in.toString()+"? " +l2.containsKey(in.toString()));
             if (!l2.containsKey(in)) {
                 l2.put(in, new Text("0:0:0:0"));
+//                System.out.println(in + " added to l2 with 0:0:0:0");
             }
         }
         for (Writable in : l2.keySet()) {
             if (!l1.containsKey(in)) {
                 l1.put(in, new Text("0:0:0:0"));
+//                System.out.println(in + " added to l1 with 0:0:0:0");
             }
         }
+
     }
 
     private static double eq9X(MapWritable l1, MapWritable l2, int index) {
-        System.out.println("eq9:");
+//        System.out.println("eq9:");
         Set<Writable> keys = l1.keySet();
-        System.out.println(Arrays.toString(keys.toArray()));
+//        System.out.println(Arrays.toString(keys.toArray()));
         double sum = 0.0;
         for (Writable k : keys) {
             String t1 = l1.get(k).toString();
@@ -194,11 +244,12 @@ public class Step5 {
             double v2 = Double.parseDouble(split2[index]);
             sum += Math.abs(v1 - v2);
         }
-        System.out.println("sum: "+sum);
+//        System.out.println("sum: " + sum);
         return sum;
     }
 
     private static double eq10X(MapWritable l1, MapWritable l2, int index) {
+//        System.out.println("eq10:");
         Set<Writable> keys = l1.keySet();
         double sum = 0.0;
         for (Writable k : keys) {
@@ -210,10 +261,13 @@ public class Step5 {
             double v2 = Double.parseDouble(split2[index]);
             sum += Math.pow(v1 - v2, 2);
         }
+//        System.out.println("sum: " + Math.sqrt(sum));
+
         return Math.sqrt(sum);
     }
 
     private static double eq11X(MapWritable l1, MapWritable l2, int index) {
+//        System.out.println("eq11:");
         Set<Writable> keys = l1.keySet();
         double sum = 0.0;
         double e1 = 0.0;
@@ -232,10 +286,14 @@ public class Step5 {
         e1 = Math.sqrt(e1);
         e2 = Math.sqrt(e2);
 
+//        System.out.println("sum: " + sum / (e1 * e2));
+
         return sum / (e1 * e2);
     }
 
     private static double eq13X(MapWritable l1, MapWritable l2, int index) {
+//        System.out.println("eq13:");
+
         Set<Writable> keys = l1.keySet();
         double sum1 = 0.0;
         double sum2 = 0.0;
@@ -249,10 +307,14 @@ public class Step5 {
             sum1 += Math.min(v1, v2);
             sum2 += Math.max(v1, v2);
         }
+//        System.out.println("sum: " + sum1 / sum2);
+
         return sum1 / sum2;
     }
 
     private static double eq15X(MapWritable l1, MapWritable l2, int index) {
+//        System.out.println("eq15:");
+
         Set<Writable> keys = l1.keySet();
         double sum1 = 0.0;
         double sum2 = 0.0;
@@ -266,11 +328,17 @@ public class Step5 {
             sum1 += Math.min(v1, v2);
             sum2 += (v1 + v2);
         }
+//        System.out.println("sum: " + (2 * sum1) / sum2);
+
         return (2 * sum1) / sum2;
     }
 
     private static double eq17X(MapWritable l1, MapWritable l2, int index) {
+        System.out.println("eq17:");
+
         Set<Writable> keys = l1.keySet();
+//        System.out.println("l1 size: "+keys.size());
+
         double[] average = new double[keys.size()];
         int i = 0;
         double[] l1arr = new double[keys.size()];
@@ -278,26 +346,41 @@ public class Step5 {
         for (Writable k : keys) {
             String t1 = l1.get(k).toString();
             String t2 = l2.get(k).toString();
+//                System.out.println("t1 " + t1 + " t2 " + t2);
+
             String[] split1 = t1.split(":");
             String[] split2 = t2.split(":");
             double v1 = Double.parseDouble(split1[index]);
             double v2 = Double.parseDouble(split2[index]);
+
+//                System.out.println("v1 " + v1 + " v2 " + v2);
             l1arr[i] = v1;
             l2arr[i] = v2;
             average[i] = (v1 + v2) / 2;
             i++;
         }
-        return (eq16(l1arr, average) + eq16(l2arr, average));
+        double ret = (eq16(l1arr, average) + eq16(l2arr, average));
+        System.out.println("sum: " + ret);
+
+        return ret;
     }
 
     private static double eq16(double[] arr, double[] average) {
+        System.out.println("eq16:");
+        System.out.println(Arrays.toString(arr));
+        System.out.println(Arrays.toString(average));
         double res = 0.0;
         for (int i = 0; i < arr.length; ++i) {
             if (arr[i] == 0 || average[i] == 0.0) {
                 continue;
             }
-            res += arr[i] * Math.log(arr[i] / average[i]);
+            System.out.println("arr[i] " + arr[i] + " Math.log " + Math.log(arr[i] / average[i]));
+            double eq = (arr[i] * Math.log(arr[i] / average[i]));
+            res += eq;
         }
+
+        System.out.println("sum: " + res / Math.log(2));
+
         return res / Math.log(2);
 
     }
@@ -310,32 +393,32 @@ public class Step5 {
             vector[index] = eq9X(l1, l2, i);
             index++;
         }
-        index++;
+//        index++;
         //eq10
         for (int i = 0; i < 4; i++) {
             vector[index] = eq10X(l1, l2, i);
             index++;
         }
         //e11
-        index++;
+//        index++;
         for (int i = 0; i < 4; i++) {
             vector[index] = eq11X(l1, l2, i);
             index++;
         }
         //eq13
-        index++;
+//        index++;
         for (int i = 0; i < 4; i++) {
             vector[index] = eq13X(l1, l2, i);
             index++;
         }
         //eq15
-        index++;
+//        index++;
         for (int i = 0; i < 4; i++) {
             vector[index] = eq15X(l1, l2, i);
             index++;
         }
         //eq17
-        index++;
+//        index++;
         for (int i = 0; i < 4; i++) {
             vector[index] = eq17X(l1, l2, i);
             index++;
