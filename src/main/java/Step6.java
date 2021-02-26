@@ -75,8 +75,8 @@ public class Step6 {
         public void setup(Context context) throws IOException, InterruptedException {
             context.write(new Text("@RELATION SemanticSimilarity"), new Text());
             for (int i = 0; i < 24; i++)
-                context.write(new Text("@ATTRIBUTE value" + i + "REAL"), new Text());
-            context.write(new Text("@ATTRIBUTE relatedness {true,false}"), new Text());
+                context.write(new Text("@ATTRIBUTE value" + i + " REAL"), new Text());
+            context.write(new Text("@ATTRIBUTE relatedness {True,False}"), new Text());
             context.write(new Text("@DATA"), new Text());
 
         }
@@ -102,6 +102,7 @@ public class Step6 {
         job.setMapOutputValueClass(Text.class);
         job.setOutputKeyClass(Text.class);
         job.setOutputValueClass(Text.class);
+        job.setNumReduceTasks(1);
         FileInputFormat.addInputPath(job, new Path(args[0]));
         FileOutputFormat.setOutputPath(job, new Path(args[1]));
         System.exit(job.waitForCompletion(true) ? 0 : 1);

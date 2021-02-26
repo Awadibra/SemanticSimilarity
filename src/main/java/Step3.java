@@ -78,8 +78,9 @@ public class Step3 {
                 String word = in.getKey();
                 String occ = in.getValue();
                 context.write(new Text(word), new Text(key.toString() + ":" + occ + ":" + totalOcc));
+                //alligator:sum     feat1:occ:totalocc
             }
-            //alligator:sum     feat1:occ:totalocc
+            map.clear();
         }
 
         @Override

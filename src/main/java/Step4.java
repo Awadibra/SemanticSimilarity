@@ -82,7 +82,7 @@ public class Step4 {
             }
             context.write(new Text(word), map);
             //alligator     {feat: eq5:eq6:eq7:eq8,...}
-            //alligator:55      map{bite-sub:0.0000005E-4,0.000457,...}
+            //alligator      map{bite-sub:0.0000005E-4,0.000457,...}
 
             map.clear();
             //

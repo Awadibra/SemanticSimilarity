@@ -4,6 +4,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import weka.classifiers.evaluation.Evaluation;
 import weka.classifiers.trees.J48;
+import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.converters.ArffSaver;
 import weka.core.converters.CSVLoader;
@@ -25,26 +26,40 @@ public class Step7 {
 //                    ResponseTransformer.toFile(Paths.get("data.arff")));
 
 
-            ConverterUtils.DataSource source = new ConverterUtils.DataSource("data.arff");
+            ConverterUtils.DataSource source = new ConverterUtils.DataSource("step6output.arff");
             Instances data = source.getDataSet();
             if (data.classIndex() == -1) {
                 data.setClassIndex(data.numAttributes() - 1);
             }
             J48 tree = new J48();
+            tree.buildClassifier(data);
+//            Instance i1=data.instance(12);
+//            Instance i2=data.instance(15);
+
+//            System.out.println(i1.toString());
+//            System.out.println(i1.classValue());
+//            System.out.println(i1.toString(i1.numAttributes() - 1));
+
+//            System.out.println(tree.);
+//            System.out.println(tree.classifyInstance(i1));
+//            System.out.println(tree.classifyInstance(i2));
+
             Evaluation eval = new Evaluation(data);
             eval.crossValidateModel(tree, data, 10, new Random(1));
 
 //            System.out.println(eval.precision(data.classIndex()));
 //            System.out.println(eval.recall(data.classIndex()));
 //            todo: f1-score
-            System.out.println(eval.toClassDetailsString());
-            System.out.println(eval.falseNegativeRate(data.classIndex()));
-            System.out.println(eval.trueNegativeRate(data.classIndex()));
-            System.out.println(eval.falsePositiveRate(data.classIndex()));
-//            System.out.println(eval.truePositiveRate(data.classIndex()));
-//            System.out.println(eval.recall(data.classIndex()));
             System.out.println(eval.correct());
             System.out.println(eval.errorRate());
+            System.out.println(eval.toClassDetailsString());
+//
+//
+//            System.out.println(tree.toSummaryString());
+            System.out.println(tree.toString());
+//            System.out.println(eval.get);
+
+//            System.out.println(tree.toSummaryString());
 
         } catch (Exception e) {
             e.printStackTrace();
