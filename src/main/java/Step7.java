@@ -3,6 +3,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import weka.classifiers.evaluation.Evaluation;
+import weka.classifiers.evaluation.Prediction;
 import weka.classifiers.trees.J48;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -13,7 +14,9 @@ import weka.core.matrix.Matrix;
 
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class Step7 {
@@ -33,7 +36,9 @@ public class Step7 {
             }
             J48 tree = new J48();
             tree.buildClassifier(data);
-//            Instance i1=data.instance(12);
+
+
+
 //            Instance i2=data.instance(15);
 
 //            System.out.println(i1.toString());
@@ -41,25 +46,49 @@ public class Step7 {
 //            System.out.println(i1.toString(i1.numAttributes() - 1));
 
 //            System.out.println(tree.);
-//            System.out.println(tree.classifyInstance(i1));
 //            System.out.println(tree.classifyInstance(i2));
 
             Evaluation eval = new Evaluation(data);
             eval.crossValidateModel(tree, data, 10, new Random(1));
 
+
+            int count=0;
+            for(int i=0;i<data.size();i++) {
+                Instance j = data.instance(i);
+                double classifyInstance=tree.classifyInstance(j);
+//                if(classifyInstance!=1) {
+                    System.out.println(i + " " + classifyInstance+" "+j.toString());
+                    count++;
+//                }
+            }
+//            System.out.println(count);
+            ConverterUtils.DataSource s2 = new ConverterUtils.DataSource("try.arff");
+            Instances data2 = source.getDataSet();
+
+                data2.setClassIndex(data2.numAttributes() - 1);
+
+            Instance curr=data2.get(0);
+            System.out.println(tree.classifyInstance(curr));
+
+//
+//            ArrayList<Prediction> predictions=eval.predictions();
+//            for(Prediction p:predictions){
+//                System.out.println(p.actual()+" "+p.predicted()+" ");
+//            }
+//            double[][] matrix=eval.confusionMatrix();
+//            System.out.println(eval.toMatrixString());
+//            todo: f1-score
+//            System.out.println(eval.correct());
+//            System.out.println(eval.errorRate());
+//            System.out.println(eval.toClassDetailsString());
+////
+////
+//            System.out.println(tree.toSummaryString());
+//            System.out.println(tree.toString());
+
+//            System.out.println(eval.get);
 //            System.out.println(eval.precision(data.classIndex()));
 //            System.out.println(eval.recall(data.classIndex()));
-//            todo: f1-score
-            System.out.println(eval.correct());
-            System.out.println(eval.errorRate());
-            System.out.println(eval.toClassDetailsString());
-//
-//
-//            System.out.println(tree.toSummaryString());
-            System.out.println(tree.toString());
-//            System.out.println(eval.get);
-
-//            System.out.println(tree.toSummaryString());
 
         } catch (Exception e) {
             e.printStackTrace();
