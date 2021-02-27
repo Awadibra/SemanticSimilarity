@@ -25,35 +25,10 @@ public class Main {
 
 
     public static void main(String... args) {
-
-//        uploadJars();
-
-        //todo: create input string with for, from 99 input files
-        String[] biarcs = new String[3];
-        biarcs[0] = "s3://dsp-211-ass3/step1out";
-        biarcs[1] = "s3://dsp-211-ass3/v1";
-        biarcs[2] = "s3://assignment3dsp/biarcs/biarcs.11-of-99";
-//        biarcs[2] = "s3://assignment3dsp/biarcs/";
-//        for (int i=0; i< 10; i++){
-//            biarcs[i] = "biarcs.0"+i+"-of-99.gz";
-//        }
-//                for (int i=11; i< 15; i++){
-//            biarcs[i] = "biarcs."+i+"-of-99.gz";
-//        }
-
-
         AmazonElasticMapReduce mapReduce = AmazonElasticMapReduceClientBuilder.standard()
                 .withCredentials(credentialsProvider)
                 .withRegion("us-east-1")
                 .build();
-//        //TEST3
-//        HadoopJarStepConfig test3 = new HadoopJarStepConfig()
-//                .withJar("s3://dsp-211-ass3/Test3.jar")
-//                .withArgs("s3://dsp-211-ass3/Test.txt","s3://dsp-211-ass3/test3out");
-//        StepConfig testConfig3 = new StepConfig()
-//                .withName("test3")
-//                .withHadoopJarStep(test3)
-//                .withActionOnFailure("TERMINATE_JOB_FLOW");
 
         //STEP0 - build v1
         HadoopJarStepConfig step0 = new HadoopJarStepConfig()
@@ -68,16 +43,62 @@ public class Main {
         //STEP1 - get words from corpus which also in v1
         HadoopJarStepConfig step1 = new HadoopJarStepConfig()
                 .withJar("s3://dsp-211-ass3/Step1.jar")
-                .withArgs(biarcs);
+                .withArgs("s3://assignment3dsp/biarcs/biarcs.13-of-99","s3://dsp-211-ass3/step1out");
+//                .withArgs("s3://assignment3dsp/biarcs","s3://dsp-211-ass3/step1out");
         StepConfig stepConfig1 = new StepConfig()
                 .withName("step1")
                 .withHadoopJarStep(step1)
                 .withActionOnFailure("TERMINATE_JOB_FLOW");
 
+        //STEP2
+        HadoopJarStepConfig step2 = new HadoopJarStepConfig()
+                .withJar("s3://dsp-211-ass3/Step2.jar")
+                .withArgs("s3://dsp-211-ass3/step1out","s3://dsp-211-ass3/step2out");
+        StepConfig stepConfig2 = new StepConfig()
+                .withName("step2")
+                .withHadoopJarStep(step2)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
+        //STEP3
+        HadoopJarStepConfig step3 = new HadoopJarStepConfig()
+                .withJar("s3://dsp-211-ass3/Step3.jar")
+                .withArgs("s3://dsp-211-ass3/step2out","s3://dsp-211-ass3/step3out");
+        StepConfig stepConfig3 = new StepConfig()
+                .withName("step3")
+                .withHadoopJarStep(step3)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
+        //STEP4
+        HadoopJarStepConfig step4 = new HadoopJarStepConfig()
+                .withJar("s3://dsp-211-ass3/Step4.jar")
+                .withArgs("s3://dsp-211-ass3/step3out","s3://dsp-211-ass3/step4out");
+        StepConfig stepConfig4 = new StepConfig()
+                .withName("step4")
+                .withHadoopJarStep(step4)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
+        //STEP5
+        HadoopJarStepConfig step5 = new HadoopJarStepConfig()
+                .withJar("s3://dsp-211-ass3/Step5.jar")
+                .withArgs("s3://dsp-211-ass3/step4out","s3://dsp-211-ass3/step5out");
+        StepConfig stepConfig5 = new StepConfig()
+                .withName("step5")
+                .withHadoopJarStep(step5)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
+        //Step6
+        HadoopJarStepConfig step6 = new HadoopJarStepConfig()
+                .withJar("s3://dsp-211-ass3/Step6.jar")
+                .withArgs("s3://dsp-211-ass3/step5out","s3://dsp-211-ass3/step6out");
+        StepConfig stepConfig6 = new StepConfig()
+                .withName("step6")
+                .withHadoopJarStep(step6)
+                .withActionOnFailure("TERMINATE_JOB_FLOW");
+
         JobFlowInstancesConfig instances = new JobFlowInstancesConfig()
-                .withInstanceCount(2)
-                .withMasterInstanceType(InstanceType.M4_LARGE.toString())
-                .withSlaveInstanceType(InstanceType.M4_LARGE.toString())
+                .withInstanceCount(6)
+                .withMasterInstanceType(InstanceType.C5_XLARGE.toString())
+                .withSlaveInstanceType(InstanceType.C5_XLARGE.toString())
                 .withHadoopVersion("2.6.0")
                 .withEc2KeyName("dspass1")
                 .withKeepJobFlowAliveWhenNoSteps(false)
@@ -86,7 +107,7 @@ public class Main {
         RunJobFlowRequest runFlowRequest = new RunJobFlowRequest()
                 .withName("semanticSimilarity")
                 .withInstances(instances)
-                .withSteps(stepConfig1)
+                .withSteps(stepConfig1,stepConfig2,stepConfig3,stepConfig4,stepConfig5,stepConfig6)
                 .withLogUri("s3n://dsp-211-ass3/logs/")
                 .withServiceRole("EMR_Role")
                 .withJobFlowRole("EMR_EC2_Role")
@@ -97,62 +118,4 @@ public class Main {
         System.out.println("Ran job flow with id: " + jobFlowId);
 
     }
-
-    private static void uploadJars() {
-        try {
-            String key = "Step1.jar";
-            Region region = Region.US_EAST_1;
-            S3Client s3 = S3Client.builder().region(region).build();
-
-//            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder().bucket("dsp-211-ass3").key(key).build();
-//            s3.deleteObject(deleteObjectRequest);
-
-            s3.putObject(PutObjectRequest.builder()
-                            .bucket("dsp-211-ass3")
-                            .key("Test1.jar").acl(ObjectCannedACL.PUBLIC_READ)
-                            .build(),
-                    Paths.get("Test1.jar"));
-
-            s3.putObject(PutObjectRequest.builder()
-                            .bucket("dsp-211-ass3")
-                            .key("Test2.jar").acl(ObjectCannedACL.PUBLIC_READ)
-                            .build(),
-                    Paths.get("Test2.jar"));
-
-            s3.putObject(PutObjectRequest.builder()
-                            .bucket("dsp-211-ass3")
-                            .key("Test.txt").acl(ObjectCannedACL.PUBLIC_READ)
-                            .build(),
-                    Paths.get("Test.txt"));
-
-
-        } catch (S3Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-//    public static void printFile(){
-//        File file = new File("/Users/awadi/Desktop/hadoop logs/biarcs.21-of-99.gz");
-//        GZIPInputStream in = null;
-//        try {
-//            in = new GZIPInputStream(new FileInputStream(file));
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//
-//        Reader decoder = new InputStreamReader(in);
-//        BufferedReader br = new BufferedReader(decoder);
-//
-//        String line;
-//        int lines = 0;
-//        while (true) {
-//            try {
-//                if (!((line = br.readLine()) != null)) break;
-//                System.out.println(line);
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//            lines++;
-//        }
-//    }
 }

@@ -62,8 +62,7 @@ public class Step6 {
             String vector = split[1];
             String relatedness = pairsRelatedness.get(pair);
             vector += "," + relatedness;
-//            context.write(new Text(vector), new Text());
-            context.write(new Text(vector), new Text(pair));
+            context.write(new Text(vector), new Text());
             //vector,true/falue
         }
 
@@ -74,12 +73,8 @@ public class Step6 {
     }
 
     public static class ReducerClass extends Reducer<Text, Text, Text, Text> {
-        int index;
-        ArrayList<Integer> list;
         @Override
         public void setup(Context context) throws IOException, InterruptedException {
-            list=new ArrayList<>(Arrays.asList(43,44,49));  //for analysis purpose
-            index=0;
             context.write(new Text("@RELATION SemanticSimilarity"), new Text());
             for (int i = 0; i < 24; i++)
                 context.write(new Text("@ATTRIBUTE value" + i + " REAL"), new Text());
@@ -90,11 +85,8 @@ public class Step6 {
 
         @Override
         public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-            if(list.contains(index)){
-                for (Text t: values)
-                System.out.println(key.toString() +" "+ t.toString()+" "+index);
-            }
             context.write(key, new Text());
+
         }
 
         @Override

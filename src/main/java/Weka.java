@@ -22,7 +22,6 @@ import java.util.Random;
 public class Weka {
     public static void main(String[] args) {
         try {
-            // TODO: make it happens with s3
             //download file from s3
             Region region = Region.US_EAST_1;
             S3Client s3 = S3Client.builder().region(region).build();
